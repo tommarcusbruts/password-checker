@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>tommarcusbrut | Password Intelligence Tool</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/zxcvbn/4.4.2/zxcvbn.js"></script>
+  <style>
+    body {
+      background-color: #0a0a0a;
+      color: #e2e8f0;
+      font-family: 'JetBrains Mono', monospace;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.5s, box-shadow 0.5s;
+      margin: 0;
+    }
+    .terminal {
+      background: #111;
+      border: 1px solid #333;
+      width: 90%;
+      max-width: 720px;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 0 20px #00ff9f33;
+      transition: box-shadow 0.5s, border-color 0.5s;
+    }
+    .terminal.danger {
+      box-shadow: 0 0 20px #ff003333;
+      border-color: #ff0033;
+    }
+    .glitch {
+      font-weight: 800;
+      font-size: 1.5rem;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: #00ff9f;
+      transition: color 0.5s;
+    }
+    .danger-text { color: #ff0033 !important; }
+    
+
+    /* Input + eye layout */
+    .input-group {
+      position: relative;
+      width: 100%;
+    }
+    #pwd {
+      width: 100%;
+      padding-right: 40px;
+      box-sizing: border-box;
+      height:40px;
+      font-size: medium;
+      
+    }
+    .eye-btn {
+      position: absolute;
+      right: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 16px;
+      height: 16px;
+      cursor: pointer;
+      color: #777;
+      transition: color 0.3s, transform 0.1s;
+    }
+    .eye-btn:hover {
+      color: #00ff9f;
+      transform: translateY(-50%) scale(1.1);
+    }
+    .eye-btn.danger:hover {
+      color: #ff0033;
+    }
+    .hash-block {
+      font-size: 0.8rem;
+      background: #0d0d0d;
+      padding: 12px;
+      border: 1px solid #222;
+      border-radius: 6px;
+      margin-top: 8px;
+      color: #94a3b8;
+      white-space: nowrap;
+      overflow-x: auto;
+    }
+  </style>
+</head>
+<body>
+  <div class="terminal" id="terminal">
+    <div class="glitch" id="title" data-text="PASSWORD INTELLIGENCE">PASSWORD INTELLIGENCE</div>
+    
+    <div class="flex">
+    <div class="input-group">
+      <input
+        type="password"
+        id="pwd"
+        class="bg-black border border-gray-700  text-xl px-4 py-5 rounded-md focus:border-emerald-400 outline-none text-gray-100"
+        placeholder="> Enter password..."
+      />
+      <svg id="eyeIcon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+        stroke-width="1.5" stroke="currentColor" class="eye-btn">
+        <path stroke-linecap="round" stroke-linejoin="round"
+          d="M2.25 12s3.75-7.5 9.75-7.5S21.75 12 21.75 12s-3.75 7.5-9.75 7.5S2.25 12 2.25 12z" />
+        <circle cx="12" cy="12" r="3" />
+      </svg>
+    </div>
+
+    <button id="btn" onclick="checkPassword()"
+      class="w-full mt-3 bg-emerald-500 hover:bg-emerald-400 text-black font-semibold py-2 rounded-md transition-all">
+      RUN ANALYSIS
+    </button>
+</div>
+    <div id="strength" class="mt-5 text-emerald-400 text-sm"></div>
+    <div id="result" class="mt-5 text-sm"></div>
+  </div>
+
+  <script>
+    const terminal = document.getElementById("terminal");
+    const title = document.getElementById("title");
+    
+    const btn = document.getElementById("btn");
+    const resultDiv = document.getElementById("result");
+    const strengthDiv = document.getElementById("strength");
+    const pwdInput = document.getElementById("pwd");
+    const eyeIcon = document.getElementById("eyeIcon");
+
+    // 👁️ Toggle Password Visibility
+    eyeIcon.addEventListener("click", () => {
+      const isHidden = pwdInput.type === "password";
+      pwdInput.type = isHidden ? "text" : "password";
+      eyeIcon.innerHTML = isHidden
+        ? `<path stroke-linecap='round' stroke-linejoin='round' d='M3 3l18 18M9.88 9.88A3 3 0 0115 15m-9.35-3a9.99 9.99 0 0015.7 0M12 3C6 3 2.25 10.5 2.25 10.5c.96 1.66 2.24 3.11 3.75 4.28'/>`
+        : `<path stroke-linecap='round' stroke-linejoin='round' d='M2.25 12s3.75-7.5 9.75-7.5S21.75 12 21.75 12s-3.75 7.5-9.75 7.5S2.25 12 2.25 12z' /><circle cx='12' cy='12' r='3' />`;
+    });
+
+    function setMode(isDanger) {
+      if (isDanger) {
+        terminal.classList.add("danger");
+        title.classList.add("danger-text");
+        btn.classList.remove("bg-emerald-500", "hover:bg-emerald-400");
+        btn.classList.add("bg-red-600", "hover:bg-red-500");
+        
+        eyeIcon.classList.add("danger");
+      } else {
+        terminal.classList.remove("danger");
+        title.classList.remove("danger-text");
+        btn.classList.remove("bg-red-600", "hover:bg-red-500");
+        btn.classList.add("bg-emerald-500", "hover:bg-emerald-400");
+        
+        eyeIcon.classList.remove("danger");
+      }
+    }
+
+    function showStrength(password) {
+      const r = zxcvbn(password);
+      const bars = ["▁","▂","▃","▄","▅","▆","▇","█"];
+      const bar = bars[Math.min(r.score * 2, bars.length - 1)];
+      strengthDiv.innerHTML = `
+        <div class="mt-2 text-emerald-300">[Strength] ${bar.repeat(r.score + 1)} (${r.score}/4)</div>
+        <div class="text-gray-500 text-xs mt-1">${r.feedback.warning || "No major weaknesses."}</div>`;
+    }
+
+    async function checkPassword() {
+      const password = pwdInput.value.trim();
+      if (!password) {
+        resultDiv.innerHTML = `<div class='text-red-500'>⚠ No input provided.</div>`;
+        return;
+      }
+
+      showStrength(password);
+      resultDiv.innerHTML = `<div class='text-emerald-300'>[*] Running HIBP + Hashing checks...</div>`;
+      setMode(false);
+
+      try {
+        const res = await fetch("/api/check", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ password })
+        });
+        const data = await res.json();
+
+        if (data.error) {
+          resultDiv.innerHTML = `<div class='text-red-500'>Error: ${data.error}</div>`;
+          return;
+        }
+
+        const { hashes, hibp } = data;
+        let html = `<div class='mt-3 text-emerald-300'>[+] Hash Analysis Complete:</div>`;
+        Object.entries(hashes).forEach(([k,v]) => {
+          html += `<div class='hash-block'><b>${k}</b>: ${v}</div>`;
+        });
+
+        html += `<div class='mt-5 text-emerald-300'>[+] Leak Check (HIBP):</div>`;
+        if (hibp.error) {
+          html += `<div class='text-yellow-400'>${hibp.error}</div>`;
+        } else if (hibp.found) {
+          html += `<div class='text-red-400 font-semibold mt-1'>⚠ Password found ${hibp.count.toLocaleString()} times in breaches!</div>`;
+          setMode(true);
+        } else {
+          html += `<div class='text-green-400 font-semibold mt-1'>✅ No breaches detected.</div>`;
+          setMode(false);
+        }
+
+        resultDiv.innerHTML = html;
+      } catch (err) {
+        resultDiv.innerHTML = `<div class='text-red-500'>Network error: ${err.message}</div>`;
+      }
+    }
+  </script>
+</body>
+</html>
